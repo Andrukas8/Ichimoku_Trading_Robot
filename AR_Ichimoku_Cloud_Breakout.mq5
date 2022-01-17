@@ -84,6 +84,10 @@ void OnTick()
       double KijunsenArr[];
       double SenkouspanAArr[];
       double SenkouspanBArr[];
+
+      double ShiftedSenkouspanAArr[];
+      double ShiftedSenkouspanBArr[];
+
       double ChikouspanArr[];
 
 
@@ -91,10 +95,13 @@ void OnTick()
       CopyBuffer(handleIchimoku,1,0,2,KijunsenArr);
       CopyBuffer(handleIchimoku,2,0,2,SenkouspanAArr);
       CopyBuffer(handleIchimoku,3,0,2,SenkouspanBArr);
-      CopyBuffer(handleIchimoku,4,0,30,ChikouspanArr);
 
-      Comment("\nTenkansen = ",TenkansenArr[0],"\nKijunsen = ",KijunsenArr[0],"\nSenkouspanA = ",SenkouspanAArr[0],"\nSenkouspanB = ",SenkouspanBArr[0],"\nChikouspan = ", ChikouspanArr[0],
-              "\n\nTenkansen = ",TenkansenArr[1],"\nKijunsen = ",KijunsenArr[1],"\nSenkouspanA = ",SenkouspanAArr[1],"\nSenkouspanB = ",SenkouspanBArr[1],"\nChikouspan = ", ChikouspanArr[1]);
+      CopyBuffer(handleIchimoku,2,-Kijunsen,2,ShiftedSenkouspanAArr);
+      CopyBuffer(handleIchimoku,3,-Kijunsen,2,ShiftedSenkouspanBArr);
+
+      CopyBuffer(handleIchimoku,4,Kijunsen,1,ChikouspanArr);
+
+      Comment("\nTenkansen = ",TenkansenArr[0],"\nKijunsen = ",KijunsenArr[0],"\nShiftedSenkouspanA = ",ShiftedSenkouspanAArr[0],"\nSenkouspanB = ",SenkouspanBArr[0],"\nChikouspan = ", ChikouspanArr[0]);
 
 
 
@@ -152,16 +159,15 @@ void OnTick()
       // Indicator Signals
 
 
-      double Bar26High = iHigh(_Symbol,PERIOD_CURRENT,26);
-      double Bar26Low = iLow(_Symbol,PERIOD_CURRENT,26);
+      double Bar26High = iHigh(_Symbol,PERIOD_CURRENT,Kijunsen);
+      double Bar26Low = iLow(_Symbol,PERIOD_CURRENT,Kijunsen);
 
-      double Bar27High = iHigh(_Symbol,PERIOD_CURRENT,27);
-      double Bar27Low = iLow(_Symbol,PERIOD_CURRENT,27);
+
 
       double CurrentHigh = iHigh(_Symbol,PERIOD_CURRENT,0);
       double CurrentLow = iLow(_Symbol,PERIOD_CURRENT,0);
 
-      Print("Bar26High = ",Bar26High, "\nBar26Low = ", Bar26Low);
+      Print("\nBar26High = ",Bar26High, "\nBar26Low = ", Bar26Low);
 
 
       // ATR trend filter
@@ -184,35 +190,40 @@ void OnTick()
 
       int Number_of_Positions =  PositionsTotal();
 
-      Print("Bar26High = ",Bar26High,"Bar27High = ",Bar27High);
+      Print("Bar26High = ",Bar26High);
+
 
       // BUY Trades
 
 
-      //*************************************
       // Buy Signal
 
-      if((TenkansenArr[0] > KijunsenArr[0]) && (TenkansenArr[1] < KijunsenArr[1]))
+      if((TenkansenArr[0] > KijunsenArr[0]))
         {
+         Print("Buy Cross");
          BuySignal_1 = true; // TK Cross
          SellSignal_1 = false; // cancelling sell signal
+        }
+      else
+        {
+         BuySignal_1 = false;
         }
 
 
 
-      if(ChikouspanArr[26] > Bar26High)
+      if(ChikouspanArr[0] > Bar26High)
         {
          BuySignal_2 = true;
          SellSignal_2 = false;
         }
 
-      if((SenkouspanAArr[0] > SenkouspanBArr[0]) && (SenkouspanAArr[1] < SenkouspanBArr[1]))
+      if((ShiftedSenkouspanAArr[0] > ShiftedSenkouspanBArr[0]) /* && (SenkouspanAArr[1] < SenkouspanBArr[1]) */)
         {
          BuySignal_3 = true;
          SellSignal_3 = false;
         }
 
-      if(BuySignal_1 && BuySignal_2 && BuySignal_3 && (CurrentHigh > KijunsenArr[0]))
+      if(BuySignal_1 && BuySignal_2 && BuySignal_3 && (CurrentHigh > SenkouspanBArr[0]))
         {
          BuySignal_GO = true;
          SellSignal_GO = false;
@@ -221,6 +232,9 @@ void OnTick()
 
       if(BuySignal_GO && Number_of_Positions == 0)
         {
+         BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
+         SellSignal_1 = SellSignal_2 = SellSignal_3 = SellSignal_GO = false;
+
          Print(__FUNCTION__," > Buy signal.");
          Print(BuySignal_1," ",BuySignal_2," ",SellSignal_1," ",SellSignal_2);
          double sl = ask - SlPoints*SymbolInfoDouble(_Symbol,SYMBOL_POINT);
@@ -228,32 +242,38 @@ void OnTick()
 
          trade.Buy(Lots,_Symbol,ask,sl,tp,"This is a BUY trade");
 
-         BuySignal_1 = false;
-         BuySignal_GO = false;
+         Print("KUKU - Buy");
+
+
         }
 
 
       // SELL trades
 
-      if((TenkansenArr[0] < KijunsenArr[0]) && (TenkansenArr[1] > KijunsenArr[1]))
+      if((TenkansenArr[0] < KijunsenArr[0]))
         {
+         Print("Sell Cross");
          SellSignal_1 = true; // KT Cross
          BuySignal_1 = false; // cancelling buy signal
         }
+      else
+        {
+         SellSignal_1 = false;
+        }
 
-      if(ChikouspanArr[26] < Bar26Low)
+      if(ChikouspanArr[0] < Bar26Low)
         {
          SellSignal_2 = true;
          BuySignal_2 = false;
         }
 
-      if((SenkouspanAArr[0] < SenkouspanBArr[0]) && (SenkouspanAArr[1] > SenkouspanBArr[1]))
+      if((ShiftedSenkouspanAArr[0] < ShiftedSenkouspanBArr[0])  /* && (SenkouspanAArr[1] > SenkouspanBArr[1]) */)
         {
          SellSignal_3 = true;
          BuySignal_3 = false;
         }
 
-      if(SellSignal_1 && SellSignal_2 && SellSignal_3 && (CurrentHigh < KijunsenArr[0]))
+      if(SellSignal_1 && SellSignal_2 && SellSignal_3 && (CurrentLow < SenkouspanBArr[0]))
         {
          SellSignal_GO = true;
          BuySignal_GO = false;
@@ -262,14 +282,21 @@ void OnTick()
 
       if(SellSignal_GO && Number_of_Positions == 0)
         {
+
+         SellSignal_1 = SellSignal_2 = SellSignal_3 = SellSignal_GO = false;
+         BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
+
          Print(__FUNCTION__," > Sell signal.");
          Print(BuySignal_1," ",BuySignal_2," ",SellSignal_1," ",SellSignal_2);
          double sl = bid + SlPoints*SymbolInfoDouble(_Symbol,SYMBOL_POINT);
          double tp = bid - TpPoints*SymbolInfoDouble(_Symbol,SYMBOL_POINT);
          trade.Sell(Lots,_Symbol,bid,sl,tp,"This is a SELL trade");
 
-         SellSignal_1 = false;
-         SellSignal_GO = false;
+         Print("KUKU - Sell");
+
+
+
+
         }
 
 
