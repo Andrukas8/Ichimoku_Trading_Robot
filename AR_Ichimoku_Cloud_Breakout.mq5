@@ -3,7 +3,7 @@
 //|                                                               AR |
 //|                                                                  |
 //+------------------------------------------------------------------+
-#property copyright "AR"
+#property copyright "AR Ichimoku, uses ATR for SL and TP, has ATR filter"
 #property link      ""
 #property version   "1.00"
 
@@ -64,9 +64,30 @@ void OnDeinit(const int reason)
 
 
   }
+
+//+------------------------------------------------------------------+
+//| Closing All Positions which are now open                         |
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void closeAllPositions()
+  {
+   for(int i=PositionsTotal()-1; i>=0; i--)
+     {
+      ulong positionticket = PositionGetTicket(i);
+      trade.PositionClose(positionticket,-1);
+      Print("eliminando posición ",positionticket);
+
+     }
+  }
+
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
+
+
 void OnTick()
   {
 //---
@@ -90,7 +111,6 @@ void OnTick()
 
       double ChikouspanArr[];
 
-
       CopyBuffer(handleIchimoku,0,0,2,TenkansenArr);
       CopyBuffer(handleIchimoku,1,0,2,KijunsenArr);
       CopyBuffer(handleIchimoku,2,0,2,SenkouspanAArr);
@@ -103,10 +123,6 @@ void OnTick()
 
       Comment("\nTenkansen = ",TenkansenArr[0],"\nKijunsen = ",KijunsenArr[0],"\nShiftedSenkouspanA = ",ShiftedSenkouspanAArr[0],"\nSenkouspanB = ",SenkouspanBArr[0],"\nChikouspan = ", ChikouspanArr[0]);
 
-
-
-
-
       //--- obtain spread from the symbol properties  --- not used in program
       bool spreadfloat=SymbolInfoInteger(Symbol(),SYMBOL_SPREAD_FLOAT);
       string comm=StringFormat("Spread %s = %I64d points\r\n",
@@ -115,11 +131,8 @@ void OnTick()
 
       //---
 
-
-
       double ask = SymbolInfoDouble(_Symbol,SYMBOL_ASK);
       double bid = SymbolInfoDouble(_Symbol,SYMBOL_BID);
-
 
       // % Risk Position Size
 
@@ -129,7 +142,6 @@ void OnTick()
       // % Risk Position Size
       double Lots = FixedLots;
 
-
       if(UsePercentRM)
         {
          double AccountBalance = NormalizeDouble(AccountInfoDouble(ACCOUNT_BALANCE),2);
@@ -138,7 +150,6 @@ void OnTick()
          Lots = NormalizeDouble(AmountToRisk/(SlPoints)/ValuePp,2);
          //    Print("Position size in Lots = ",PercentRisk,"% of ",AccountBalance," = ",AmountToRisk," = ",Lots);
         }
-
 
       double ValueAtr[];
 
@@ -158,11 +169,8 @@ void OnTick()
 
       // Indicator Signals
 
-
       double Bar26High = iHigh(_Symbol,PERIOD_CURRENT,Kijunsen);
       double Bar26Low = iLow(_Symbol,PERIOD_CURRENT,Kijunsen);
-
-
 
       double CurrentHigh = iHigh(_Symbol,PERIOD_CURRENT,0);
       double CurrentLow = iLow(_Symbol,PERIOD_CURRENT,0);
@@ -186,8 +194,6 @@ void OnTick()
         }
 
 
-
-
       int Number_of_Positions =  PositionsTotal();
 
       Print("Bar26High = ",Bar26High);
@@ -202,19 +208,29 @@ void OnTick()
         {
          Print("Buy Cross");
          BuySignal_1 = true; // TK Cross
+
+
+         if(Number_of_Positions > 0 && SellSignal_1 == true)
+           {
+            closeAllPositions();
+           }
+
          SellSignal_1 = false; // cancelling sell signal
+
         }
       else
         {
          BuySignal_1 = false;
         }
 
-
-
       if(ChikouspanArr[0] > Bar26High)
         {
          BuySignal_2 = true;
          SellSignal_2 = false;
+        }
+      else
+        {
+         BuySignal_2 = false;
         }
 
       if((ShiftedSenkouspanAArr[0] > ShiftedSenkouspanBArr[0]) /* && (SenkouspanAArr[1] < SenkouspanBArr[1]) */)
@@ -223,14 +239,14 @@ void OnTick()
          SellSignal_3 = false;
         }
 
-      if(BuySignal_1 && BuySignal_2 && BuySignal_3 && (CurrentHigh > SenkouspanBArr[0]))
+      if(BuySignal_1 && BuySignal_2 && BuySignal_3 && (CurrentHigh > SenkouspanBArr[0]) && (Number_of_Positions == 0))
         {
          BuySignal_GO = true;
          SellSignal_GO = false;
         }
 
 
-      if(BuySignal_GO && Number_of_Positions == 0)
+      if(BuySignal_GO)
         {
          BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
          SellSignal_1 = SellSignal_2 = SellSignal_3 = SellSignal_GO = false;
@@ -254,6 +270,12 @@ void OnTick()
         {
          Print("Sell Cross");
          SellSignal_1 = true; // KT Cross
+
+         if(Number_of_Positions > 0 && BuySignal_1 == true)
+           {
+            closeAllPositions();
+           }
+
          BuySignal_1 = false; // cancelling buy signal
         }
       else
@@ -266,6 +288,10 @@ void OnTick()
          SellSignal_2 = true;
          BuySignal_2 = false;
         }
+      else
+        {
+         SellSignal_2 = false;
+        }
 
       if((ShiftedSenkouspanAArr[0] < ShiftedSenkouspanBArr[0])  /* && (SenkouspanAArr[1] > SenkouspanBArr[1]) */)
         {
@@ -273,20 +299,20 @@ void OnTick()
          BuySignal_3 = false;
         }
 
-      if(SellSignal_1 && SellSignal_2 && SellSignal_3 && (CurrentLow < SenkouspanBArr[0]))
+      if(SellSignal_1 && SellSignal_2 && SellSignal_3 && (CurrentLow < SenkouspanBArr[0]) && (Number_of_Positions == 0))
         {
          SellSignal_GO = true;
          BuySignal_GO = false;
         }
 
 
-      if(SellSignal_GO && Number_of_Positions == 0)
+      if(SellSignal_GO)
         {
 
          SellSignal_1 = SellSignal_2 = SellSignal_3 = SellSignal_GO = false;
          BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
 
-         Print(__FUNCTION__," > Sell signal.");
+         Print(__FUNCTION__," > Sell signal = ",SellSignal_GO);
          Print(BuySignal_1," ",BuySignal_2," ",SellSignal_1," ",SellSignal_2);
          double sl = bid + SlPoints*SymbolInfoDouble(_Symbol,SYMBOL_POINT);
          double tp = bid - TpPoints*SymbolInfoDouble(_Symbol,SYMBOL_POINT);
@@ -294,26 +320,12 @@ void OnTick()
 
          Print("KUKU - Sell");
 
-
-
-
         }
 
-
-      //************************************
-
-
-
-
-
-      Print(BuySignal_1," ",BuySignal_2," ",BuySignal_3," ",BuySignal_4," ",BuySignal_GO,"\n",SellSignal_1," ",SellSignal_2," ",SellSignal_3," ",SellSignal_4," ",SellSignal_GO,"\nNumber of Positions = ",Number_of_Positions);
+   Print(BuySignal_1," ",BuySignal_2," ",BuySignal_3," ",BuySignal_4," ",BuySignal_GO,"\n",SellSignal_1," ",SellSignal_2," ",SellSignal_3," ",SellSignal_4," ",SellSignal_GO,"\nNumber of Positions = ",Number_of_Positions);
 
 
      }
-
-
-
-
 
 
   }
