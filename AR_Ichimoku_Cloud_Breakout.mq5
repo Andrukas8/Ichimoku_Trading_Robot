@@ -12,6 +12,8 @@
 // Trade inputs
 input double PercentRisk = 2;
 input double RiskToReward = 1.5;
+input bool Close_Pos_Kijunsen = true;
+input bool Close_Pos_TK_Cross = true;
 
 // ATR
 input bool UseAtrFilter = true;
@@ -133,6 +135,7 @@ void OnTick()
       double bid = SymbolInfoDouble(_Symbol,SYMBOL_BID);
       double last = SymbolInfoDouble(_Symbol,SYMBOL_LAST);
 
+
       double sl = SenkouspanBArr[0];
       double ask_tp = ask + RiskToReward * (ask - sl);
       double bid_tp = bid - RiskToReward * (sl - bid);
@@ -194,7 +197,25 @@ void OnTick()
 
       int Number_of_Positions =  PositionsTotal();
 
-      Print("Bar26High = ",Bar26High);
+      Print("Bar26High = ",Bar26High);     
+
+      // Close Position on Kijunsen Cross
+
+      if(
+         (
+            (Close_Pos_Kijunsen == true) &&
+            (last > KijunsenArr[0]) &&
+            (SellSignal_1 == true)
+         ) ||
+         (
+            (last < KijunsenArr[0]) &&
+            (BuySignal_1 == true))
+      )
+
+        {
+         Print("Closing Position on Kijunsen = ",Close_Pos_Kijunsen);
+         closeAllPositions();
+        }
 
 
       // BUY Trades
@@ -207,15 +228,15 @@ void OnTick()
          BuySignal_1 = true; // TK Cross
 
 
-         if(Number_of_Positions > 0 && SellSignal_1 == true)
+         if(Close_Pos_TK_Cross && (Number_of_Positions > 0 && SellSignal_1 == true))
            {
+            Print("Closing Position on TK/KT Cross = ",Close_Pos_TK_Cross);
             closeAllPositions();
            }
 
          SellSignal_1 = false; // cancelling sell signal
 
         }
-
 
       if(ChikouspanArr[0] > Bar26High)
         {
@@ -239,7 +260,6 @@ void OnTick()
          SellSignal_GO = false;
         }
 
-
       if(BuySignal_GO && TrendAtr)
         {
          BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
@@ -252,9 +272,7 @@ void OnTick()
 
          Print("KUKU - Buy");
 
-
         }
-
 
       // SELL trades
 
@@ -263,8 +281,9 @@ void OnTick()
          Print("Sell Cross");
          SellSignal_1 = true; // KT Cross
 
-         if(Number_of_Positions > 0 && BuySignal_1 == true)
+         if(Close_Pos_TK_Cross && (Number_of_Positions > 0 && BuySignal_1 == true))
            {
+            Print("Closing Position on TK/KT Cross = ",Close_Pos_TK_Cross);
             closeAllPositions();
            }
 
@@ -293,23 +312,15 @@ void OnTick()
          BuySignal_GO = false;
         }
 
-
       if(SellSignal_GO && TrendAtr)
         {
-
          SellSignal_1 = SellSignal_2 = SellSignal_3 = SellSignal_GO = false;
          BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
-
-
          Print(__FUNCTION__," > Sell signal ",SellSignal_GO, " ATR Trend = ",TrendAtr);
          Print(BuySignal_1," ",BuySignal_2," ",SellSignal_1," ",SellSignal_2);
          trade.Sell(Lots,_Symbol,bid,sl,bid_tp,"This is a SELL trade");
-
-
         }
-
       Print(BuySignal_1," ",BuySignal_2," ",BuySignal_3," ",BuySignal_4," ",BuySignal_GO,"\n",SellSignal_1," ",SellSignal_2," ",SellSignal_3," ",SellSignal_4," ",SellSignal_GO,"\nNumber of Positions = ",Number_of_Positions);
-
 
      }
 
