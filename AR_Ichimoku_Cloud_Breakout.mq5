@@ -3,7 +3,7 @@
 //|                                                               AR |
 //|                                                                  |
 //+------------------------------------------------------------------+
-#property copyright "AR Ichimoku, uses ATR for SL and TP, has ATR filter"
+#property copyright "AR Ichimoku, uses ATR filter, TK/KT cross for position close and SenkanspanB for SL"
 #property link      ""
 #property version   "1.00"
 
@@ -11,6 +11,7 @@
 
 // Trade inputs
 input double PercentRisk = 2;
+input double MinSLPoints = 50;
 input double RiskToReward = 1.5;
 input bool Close_Pos_Kijunsen = true;
 input bool Close_Pos_TK_Cross = true;
@@ -142,18 +143,24 @@ void OnTick()
 
       int SlPoints = (int)MathCeil(NormalizeDouble(MathAbs(last - sl),_Digits) / _Point);
 
-      Print("SlPoints = ",SlPoints);
-      Print("sl = ",sl);
-      Print("SenkouspanAArr[0] = ", SenkouspanAArr[0]);
-      Print("MathAbs(last - sl) = ",MathAbs(last - sl));
-      Print("NormalizeDouble(MathAbs(last - sl),_Digits) = ",NormalizeDouble(MathAbs(last - sl),_Digits));
-      Print("NormalizeDouble(MathAbs(last - sl),_Digits * _Point = ",NormalizeDouble(MathAbs(last - sl),_Digits) / _Point);
-      Print("_Point = ",_Point);
+
+
+      if(SlPoints < MinSLPoints)
+        {
+         Print("Achtung! === Calculated Stop Loss Points Less Then MinSLPoints === ");
+        }
+
+
+      //   Print("SlPoints = ",SlPoints);
+      //   Print("sl = ",sl);
+      //  Print("SenkouspanAArr[0] = ", SenkouspanAArr[0]);
+      //    Print("MathAbs(last - sl) = ",MathAbs(last - sl));
+      //   Print("NormalizeDouble(MathAbs(last - sl),_Digits) = ",NormalizeDouble(MathAbs(last - sl),_Digits));
+      //  Print("NormalizeDouble(MathAbs(last - sl),_Digits * _Point = ",NormalizeDouble(MathAbs(last - sl),_Digits) / _Point);
+      // Print("_Point = ",_Point);
 
 
       // % Risk Position Size
-
-
 
       double AccountBalance = NormalizeDouble(AccountInfoDouble(ACCOUNT_BALANCE),2);
       double AmountToRisk = NormalizeDouble(AccountBalance*PercentRisk/100,2);
@@ -162,7 +169,11 @@ void OnTick()
 
       double ValueAtr[];
 
+      Print("SlPoints = ",SlPoints);
+      Print("sl = ",sl);
+      Print("SenkouspanAArr[0] = ", SenkouspanAArr[0]);
 
+      Print("AccountBalance = ",AccountBalance," AmountToRisk = ",AmountToRisk," ValuePp = ",ValuePp," Lots= ",Lots);
 
 
       // Indicator Signals
@@ -173,7 +184,7 @@ void OnTick()
       double CurrentHigh = iHigh(_Symbol,PERIOD_CURRENT,0);
       double CurrentLow = iLow(_Symbol,PERIOD_CURRENT,0);
 
-      Print("\nBar26High = ",Bar26High, "\nBar26Low = ", Bar26Low);
+      //  Print("Bar26High = ",Bar26High, "\nBar26Low = ", Bar26Low);
 
 
       // ATR trend filter
@@ -197,7 +208,7 @@ void OnTick()
 
       int Number_of_Positions =  PositionsTotal();
 
-      Print("Bar26High = ",Bar26High);     
+      Print("Bar26High = ",Bar26High);
 
       // Close Position on Kijunsen Cross
 
@@ -208,6 +219,7 @@ void OnTick()
             (SellSignal_1 == true)
          ) ||
          (
+            (Close_Pos_Kijunsen == true) &&
             (last < KijunsenArr[0]) &&
             (BuySignal_1 == true))
       )
@@ -215,7 +227,10 @@ void OnTick()
         {
          Print("Closing Position on Kijunsen = ",Close_Pos_Kijunsen);
          closeAllPositions();
+         return;
         }
+
+
 
 
       // BUY Trades
@@ -248,7 +263,7 @@ void OnTick()
          BuySignal_2 = false;
         }
 
-      if((ShiftedSenkouspanAArr[0] > ShiftedSenkouspanBArr[0]))
+      if((ShiftedSenkouspanAArr[0] > ShiftedSenkouspanBArr[0]) && (SenkouspanAArr[0] > SenkouspanBArr[0]))
         {
          BuySignal_3 = true;
          SellSignal_3 = false;
@@ -260,7 +275,7 @@ void OnTick()
          SellSignal_GO = false;
         }
 
-      if(BuySignal_GO && TrendAtr)
+      if(BuySignal_GO && TrendAtr && (SlPoints > MinSLPoints))
         {
          BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
          SellSignal_1 = SellSignal_2 = SellSignal_3 = SellSignal_GO = false;
@@ -300,7 +315,7 @@ void OnTick()
          SellSignal_2 = false;
         }
 
-      if((ShiftedSenkouspanAArr[0] < ShiftedSenkouspanBArr[0]))
+      if((ShiftedSenkouspanAArr[0] < ShiftedSenkouspanBArr[0]) && (SenkouspanAArr[0] < SenkouspanBArr[0]))
         {
          SellSignal_3 = true;
          BuySignal_3 = false;
@@ -312,7 +327,7 @@ void OnTick()
          BuySignal_GO = false;
         }
 
-      if(SellSignal_GO && TrendAtr)
+      if(SellSignal_GO && TrendAtr && (SlPoints > MinSLPoints))
         {
          SellSignal_1 = SellSignal_2 = SellSignal_3 = SellSignal_GO = false;
          BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
