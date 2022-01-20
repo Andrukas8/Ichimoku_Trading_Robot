@@ -16,10 +16,17 @@ input double RiskToReward = 1.5;
 input bool Close_Pos_Kijunsen = true;
 input bool Close_Pos_TK_Cross = true;
 
+input bool UseKumoFilter = true;
+
 // ATR
 input bool UseAtrFilter = true;
 input int AtrMaPeriod = 10;
 input int AtrFilterLength = 8;
+
+// ADX
+input bool UseAdxFilter = true;
+input int AdxMAPeriod = 14;
+input int AdxThreshhold = 25;
 
 
 // Ichimoku inputs
@@ -117,8 +124,8 @@ void OnTick()
       CopyBuffer(handleIchimoku,2,0,2,SenkouspanAArr);
       CopyBuffer(handleIchimoku,3,0,2,SenkouspanBArr);
 
-      CopyBuffer(handleIchimoku,2,-Kijunsen,2,ShiftedSenkouspanAArr);
-      CopyBuffer(handleIchimoku,3,-Kijunsen,2,ShiftedSenkouspanBArr);
+      CopyBuffer(handleIchimoku,2,-Kijunsen,3,ShiftedSenkouspanAArr);
+      CopyBuffer(handleIchimoku,3,-Kijunsen,3,ShiftedSenkouspanBArr);
 
       CopyBuffer(handleIchimoku,4,Kijunsen,1,ChikouspanArr);
 
@@ -188,6 +195,8 @@ void OnTick()
 
 
       // ATR trend filter
+      bool Trend = true;
+
       bool TrendAtr = true;
 
       if(UseAtrFilter)
@@ -205,6 +214,59 @@ void OnTick()
            }
 
         }
+
+
+
+
+      // ADX trend filter
+      bool TrendAdx = true;
+      double ValueAdx[];
+      double DIPlus = 0;
+      double DIMinus = 0;
+
+
+
+      static int handleADX = iADX(_Symbol,PERIOD_CURRENT,AdxMAPeriod);
+
+      CopyBuffer(handleADX,0,0,3,ValueAdx);
+      DIPlus = ValueAdx[1];
+      DIMinus = ValueAdx[2];
+
+
+      if(UseAdxFilter)
+        {
+         TrendAdx = false;
+         if((ValueAdx[0] >= AdxThreshhold) && (ValueAdx[0] > ValueAdx[1]))
+           {
+            TrendAdx = true;
+           }
+        }
+
+
+      // Kumo Filter
+      bool TrendKumo = true;
+
+      if(UseKumoFilter)
+        {
+         TrendKumo = false;
+         if((MathAbs((ShiftedSenkouspanAArr[0] - ShiftedSenkouspanBArr[0])) > MathAbs((ShiftedSenkouspanAArr[2] - ShiftedSenkouspanBArr[2]))))
+           {
+            TrendKumo = true;
+           }
+        }
+
+      // All Trend Filters
+      if(TrendAtr && TrendAdx && TrendKumo)
+        {
+         Trend = true;
+        }
+      else
+        {
+         Trend = false;
+        }
+
+      Print("TrendAtr = ", TrendAtr," TrendAdx = ", TrendAdx," Trend |====> ", Trend);
+
 
       int Number_of_Positions =  PositionsTotal();
 
@@ -229,9 +291,6 @@ void OnTick()
          closeAllPositions();
          return;
         }
-
-
-
 
       // BUY Trades
 
@@ -275,7 +334,7 @@ void OnTick()
          SellSignal_GO = false;
         }
 
-      if(BuySignal_GO && TrendAtr && (SlPoints > MinSLPoints))
+      if(BuySignal_GO && Trend && (SlPoints > MinSLPoints))
         {
          BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
          SellSignal_1 = SellSignal_2 = SellSignal_3 = SellSignal_GO = false;
@@ -327,7 +386,7 @@ void OnTick()
          BuySignal_GO = false;
         }
 
-      if(SellSignal_GO && TrendAtr && (SlPoints > MinSLPoints))
+      if(SellSignal_GO && Trend && (SlPoints > MinSLPoints))
         {
          SellSignal_1 = SellSignal_2 = SellSignal_3 = SellSignal_GO = false;
          BuySignal_1 = BuySignal_2 = BuySignal_3 = BuySignal_GO = false;
@@ -338,7 +397,6 @@ void OnTick()
       Print(BuySignal_1," ",BuySignal_2," ",BuySignal_3," ",BuySignal_4," ",BuySignal_GO,"\n",SellSignal_1," ",SellSignal_2," ",SellSignal_3," ",SellSignal_4," ",SellSignal_GO,"\nNumber of Positions = ",Number_of_Positions);
 
      }
-
 
   }
 //+------------------------------------------------------------------+
